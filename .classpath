@@ -2,16 +2,5 @@
 <classpath>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/lib">
-		<attributes>
-			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="GameDailyTasks/lib1"/>
-		</attributes>
-	</classpathentry>
-	<classpathentry kind="lib" path="lib/javaocr-core-1.0.jar"/>
-	<classpathentry kind="lib" path="lib/javaocr-plugin-awt-1.0.jar"/>
-	<classpathentry kind="lib" path="lib/javaocr-plugin-cluster-1.0.jar"/>
-	<classpathentry kind="lib" path="lib/javaocr-plugin-fir-1.0.jar"/>
-	<classpathentry kind="lib" path="lib/javaocr-plugin-moment-1.0.jar"/>
-	<classpathentry kind="lib" path="lib/javaocr-plugin-morphology-1.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

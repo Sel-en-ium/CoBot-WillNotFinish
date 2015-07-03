@@ -1,14 +1,11 @@
 package robotRunner;
 
 import java.awt.AWTException;
-import java.awt.MouseInfo;
 import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.event.InputEvent;
-import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 
 import javax.imageio.ImageIO;
 
@@ -51,8 +48,7 @@ public class BaseRobot extends Robot
 		}
 		
 		for (int x = 0; x < width; x++) {
-			for (int y = 0; y < height; y++)
-			{
+			for (int y = 0; y < height; y++) {
 				if (base.getRGB(x, y) != current.getRGB(x, y)) {
 					return false;
 				}
