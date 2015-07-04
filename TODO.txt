@@ -1,3 +1,5 @@
 Spaces
 add rest of alphabet
 fix special char name reading
+
+Create way to change windows

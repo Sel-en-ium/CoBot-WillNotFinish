@@ -15,14 +15,17 @@ public class GameRobotRunner
   {
 	  GameRobot robot = new GameRobot();
 
-	  System.out.println("click 1");
-	    robot.leftClick(157, 754);
+	    robot.leftClick(207, 754);
+	    robot.delay(500);
+	    robot.leftClick(207, 554);
 		
 		robot.delay(2000);
 
 		try {
 			if (robot.screenNpcDialogueVisible()) {
 				System.out.println("SUCCESS");
+			} else {
+				System.out.println("NotVisible");
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

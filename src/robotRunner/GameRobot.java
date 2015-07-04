@@ -36,7 +36,7 @@ public class GameRobot extends BaseRobot
 	}
 	
 	public boolean screenNpcDialogueVisible() throws Exception {
-		return this.compareImages(new Rectangle(244, 0, 12, 6), "NpcDialogue.png");
+		return this.compareImages(244, 0, "GameBaseScreens/NpcDialogue.png");
 	}
 
 }

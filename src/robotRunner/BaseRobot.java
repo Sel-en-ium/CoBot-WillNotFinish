@@ -34,11 +34,12 @@ public class BaseRobot extends Robot
 		this.mouseRelease(InputEvent.BUTTON3_MASK);
 	}
 
-	public boolean compareImages(Rectangle currentRect, String baseFile) throws Exception {
-		BufferedImage current = this.createScreenCapture(currentRect);
-		BufferedImage base = ImageIO.read(new File("BaseScreens/" + baseFile));
+	public boolean compareImages(int xCoord, int yCoord, String baseFile) throws Exception {
+		BufferedImage base = ImageIO.read(new File(baseFile));
+		Rectangle rect = new Rectangle(xCoord, yCoord, base.getWidth(), base.getHeight());
+		BufferedImage current = this.createScreenCapture(rect);
 		
-		//ImageIO.write(current, "png", new File("newscreen.png"));
+//		ImageIO.write(current, "png", new File("newscreen.png"));
 		
 		int width = current.getWidth();
 		int height = current.getHeight();
