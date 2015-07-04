@@ -1,0 +1,3 @@
+Spaces
+add rest of alphabet
+fix special char name reading

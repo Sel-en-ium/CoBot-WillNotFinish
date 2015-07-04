@@ -13,7 +13,6 @@ import java.util.List;
 
 import javax.imageio.ImageIO;
 
-
 public class OCRReader
 {	
 	public static void main(String[] args) {
@@ -22,13 +21,17 @@ public class OCRReader
 			reader.printCharMap();
 			BufferedImage image = ImageIO.read(new File("screenshot.png"));
 			String readin = reader.readLines(image);
-			ImageIO.write(image, "png", new File("Errors/Processed.png"));
+			if (DEBUG) {
+				ImageIO.write(image, "png", new File("Errors/Processed.png"));
+			}
 			System.out.println("SUCCESS LOL!  Well here it is.. '" + readin + "'");
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
+	
+	private static boolean DEBUG = false;
 	
 	private static int nonTextColor = -16777215; // Just off black, RGB = 0,0,1
 	private static int[] textColors = {
@@ -143,8 +146,8 @@ public class OCRReader
 			topLine = getNextTopLine(textColor, topLineSearchStart);
 			System.out.println("textColor: " + textColor);
 			System.out.println("TopLine: " + topLine);
-		} catch (Exception e) {
 			
+		} catch (Exception e) {
 			String fileName = "Errors/ColorOrTopLine" + new Date().getTime() + ".png";
 			try {
 				ImageIO.write(image, "png", new File(fileName));
@@ -314,13 +317,15 @@ public class OCRReader
 		
 		for (int x = chara.nonInterferingZoneLeft; x < chara.nonInterferingZoneRight; x++) {
 			for (int y = 0; y < chara.imageHeight; y++) {
-				if (chara.isCharacterPixel(x, y) && !isInterferencePixel(chara, x, y)) {
+				if (chara.isCharacterPixel(x, y) && !isRightInterferencePixel(chara, x, y)) {
 					image.setRGB(xImg + x, yImg + y, nonTextColor);
 				}
 			}
 		}
 		try {
-			ImageIO.write(image, "png", new File("Errors/erasred" + chara.charName + ".png"));
+			if (DEBUG) {
+				ImageIO.write(image, "png", new File("Errors/erasred" + chara.charName + ".png"));
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -329,7 +334,15 @@ public class OCRReader
 	
 	private boolean isInterferencePixel(OCRChar chara, int x, int y) {
 		// In own interference zone
-		if (x < chara.nonInterferingZoneLeft || x >= chara.nonInterferingZoneRight) {
+		if (this.isLeftInterferencePixel(chara, x, y) || this.isRightInterferencePixel(chara, x, y)) {
+			return true;
+		}
+		return false;
+	}
+	
+	private boolean isLeftInterferencePixel(OCRChar chara, int x, int y) {
+		// In own interference zone
+		if (x < chara.nonInterferingZoneLeft) {
 			return true;
 		}
 		
@@ -339,6 +352,17 @@ public class OCRReader
 				&& generalInterferenceZoneLeft[colsFromLeftOfInterferenceZone][y] == 1) {
 			return true;
 		}
+
+		return false;
+	}
+	
+	private boolean isRightInterferencePixel(OCRChar chara, int x, int y) {
+		// In own interference zone
+		if (x >= chara.nonInterferingZoneRight) {
+			return true;
+		}
+		
+		// In general interference zone
 		int colsFromRightOfInterferenceZone = chara.nonInterferingZoneRight - x - 1;
 		if (colsFromRightOfInterferenceZone < generalInterferenceZoneRight.length
 				&& generalInterferenceZoneRight[colsFromRightOfInterferenceZone][y] == 1) {
