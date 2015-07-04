@@ -1,14 +1,5 @@
 package GameOCR;
 
-import java.awt.AWTException;
-import java.awt.Color;
-import java.awt.List;
-import java.awt.MouseInfo;
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.Robot;
-import java.awt.event.InputEvent;
-import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -17,8 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 
 import javax.imageio.ImageIO;
 
@@ -31,6 +22,7 @@ public class OCRReader
 			reader.printCharMap();
 			BufferedImage image = ImageIO.read(new File("screenshot.png"));
 			String readin = reader.readLines(image);
+			ImageIO.write(image, "png", new File("Errors/Processed.png"));
 			System.out.println("SUCCESS LOL!  Well here it is.. '" + readin + "'");
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -38,6 +30,7 @@ public class OCRReader
 		}
 	}
 	
+	private static int nonTextColor = -16777215; // Just off black, RGB = 0,0,1
 	private static int[] textColors = {
 			-1, // White
 			-10582070, // Met Blue
@@ -53,8 +46,32 @@ public class OCRReader
 			-32704 // Gourd kills Orange
 	};
 	
+	// Leftmost cols first
+	private static int[][] generalInterferenceZoneLeft = {
+			{
+				1, 1, 1, 1, 0, 
+				0, 0, 0, 0, 0, 
+				0
+			},
+			{
+				1, 0, 0, 0, 0, 
+				0, 0, 0, 0, 0, 
+				0
+			}
+	};
+	
+	// Rightmost cols first
+	private static int[][] generalInterferenceZoneRight = {
+			{
+				0, 0, 0, 0, 0, 
+				0, 0, 0, 1, 0, 
+				0
+			}
+	};
+	
 	private LinkedList<LinkedList<OCRChar>> charMap;
 	private int maxHeight;
+	private BufferedImage image;
 	
 	public OCRReader(String baseFolder, int maxHeight) throws IOException {
 		this.maxHeight = maxHeight;
@@ -63,43 +80,67 @@ public class OCRReader
 			this.charMap.push(new LinkedList<OCRChar>());
 		}
 		
-		OCRChar c;
-		
-		// Read in all characters
+        // Iterates through all files in the directory
     	DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(baseFolder));
-    	
-        //iterates through all files in the directory
         for (Path currentFile: stream) {
             
         	if (Files.isDirectory(currentFile)) {
+        		
         		String folder = currentFile.getFileName().toString();
         		DirectoryStream<Path> subStream = Files.newDirectoryStream(currentFile);
         		for (Path subFile: subStream) {
-        			c = new OCRChar(baseFolder, folder, subFile.getFileName().toString());
-        			charMap.get(c.getStartHeight()).push(c);
+        			addToCharMap(baseFolder, folder, subFile.getFileName().toString());
         		}
         	} else {
-        		c = new OCRChar(baseFolder, currentFile.getFileName().toString());
-        		charMap.get(c.getStartHeight()).push(c);
+        		addToCharMap(baseFolder, "", currentFile.getFileName().toString());
         	}
         }
 	}
 	
+	private void addToCharMap(String baseFolder, String folder, String fileName) { 
+		try {
+			OCRChar c;
+			if (folder.equals("")) {
+				c = new OCRChar(baseFolder, fileName);
+			} else {
+				c = new OCRChar(baseFolder, folder, fileName);
+			}
+			
+			// Insert char in order of largest numPixels first
+			List<OCRChar> list = charMap.get(c.yLeftTopPixel);
+			int i = 0;
+			while (i < list.size()) {
+				if (list.get(i).numCharacterPixels > c.numCharacterPixels) {
+					i++;
+				} else {
+					break;
+				}
+			}
+			list.add(i, c);
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
 	public String readLines(BufferedImage image) {
-		return readLine(image);
+		this.image = image;
+		return readLine(0);
 	}
 	
 	public String readLine(BufferedImage image) {
-		return readLine(image, 0);
+		this.image = image;
+		return readLine(0);
 	}
 	
-	public String readLine(BufferedImage image, int topLineSearchStart) {
+	private String readLine(int topLineSearchStart) {
 		int textColor;
 		int topLine;
 		
 		try {
-			textColor = getFirstColor(image, 0);
-			topLine = getNextTopLine(image, textColor, topLineSearchStart);
+			textColor = getFirstColor(topLineSearchStart);
+			topLine = getNextTopLine(textColor, topLineSearchStart);
 			System.out.println("textColor: " + textColor);
 			System.out.println("TopLine: " + topLine);
 		} catch (Exception e) {
@@ -116,13 +157,12 @@ public class OCRReader
 		
 		String result = "";
 		int width = image.getWidth();
-		int height = image.getHeight();
 		
 		for (int x = 0; x < width; x++) {
 			for (int y = topLine; y < topLine + maxHeight; y++) {
 				if (image.getRGB(x, y) == textColor) {
 					try {
-						result += getChar(image, textColor, x, y, y - topLine, true);
+						result += getChar(textColor, x, y, y - topLine, true);
 					} catch (Exception e) {
 						
 					}
@@ -132,7 +172,7 @@ public class OCRReader
 		return result;
 	}
 	
-	private int getNextTopLine(BufferedImage image, int textColor, int yStart) throws Exception {
+	private int getNextTopLine(int textColor, int yStart) throws Exception {
 		int width = image.getWidth();
 		int height = image.getHeight();
 		
@@ -147,8 +187,8 @@ public class OCRReader
 				if (image.getRGB(x, y) == textColor) {
 					for (int a = 0; a < charMap.size(); a++) {
 						try {
-							OCRChar match = findMatch(image, textColor, x, y, a);
-							return y - match.getStartHeight();
+							OCRChar match = findMatch(textColor, x, y, a);
+							return y - match.yLeftTopPixel;
 						} catch (Exception e) {
 							
 						}
@@ -160,7 +200,7 @@ public class OCRReader
 		throw new Exception("Could not find the top line.");
 	}
 	
-	private int getFirstColor(BufferedImage image, int startY) throws Exception {
+	private int getFirstColor(int startY) throws Exception {
 		int width = image.getWidth();
 		int height = image.getHeight();
 		
@@ -176,7 +216,7 @@ public class OCRReader
 	}
 	
 	/**
-	 * Returns the character match of a suspected pixel at a ceratin offset.
+	 * Returns the character match of a suspected pixel at a certain offset.
 	 * 
 	 * @param image
 	 * @param textColor
@@ -187,11 +227,11 @@ public class OCRReader
 	 * @return
 	 * @throws Exception
 	 */
-	private char getChar(BufferedImage image, int textColor, int xStart, int yStart, int offset, boolean erase) throws Exception {
-		OCRChar match = findMatch(image, textColor, xStart, yStart, offset);
+	private char getChar(int textColor, int xStart, int yStart, int offset, boolean erase) throws Exception {
+		OCRChar match = findMatch(textColor, xStart, yStart, offset);
 		
 		if (erase) {
-			eraseCharAt(match.image, image, xStart, yStart, offset);
+			eraseCharAt(match, xStart, yStart, offset);
 		}
 		
 		return match.charName;
@@ -208,11 +248,11 @@ public class OCRReader
 	 * @return
 	 * @throws Exception
 	 */
-	private OCRChar findMatch(BufferedImage image, int textColor, int xStart, int yStart, int offset) throws Exception {
+	private OCRChar findMatch(int textColor, int xStart, int yStart, int offset) throws Exception {
 		LinkedList<OCRChar> list = charMap.get(offset);
 		
 		for (int a = 0; a < list.size(); a++) {
-			if (testMatch(list.get(a).image, image, textColor, xStart, yStart, offset)) {
+			if (testMatch(list.get(a), textColor, xStart, yStart)) {
 				return list.get(a);
 			}
 		}
@@ -231,18 +271,26 @@ public class OCRReader
 	 * @param offset
 	 * @return
 	 */
-	private boolean testMatch(BufferedImage charIcon, BufferedImage image, int textColor, int xStart, int yStart, int offset) {
-		int width = charIcon.getWidth();
-		int height = charIcon.getHeight();
+	private boolean testMatch(OCRChar chara, int textColor, int xStart, int yStart) {
+		int xImg = xStart - chara.xLeftTopPixel;
+		int yImg = yStart - chara.yLeftTopPixel;
 		
-		if (width + xStart > image.getWidth() || height + yStart - offset> image.getHeight()) {
+		
+		if (chara.imageWidth + xImg > image.getWidth() || chara.imageHeight + yImg > image.getHeight()) {
 			return false;  // icon doesn't fit
 		}
 		
-		for (int x = 0; x < width; x++) {
-			for (int y = 0; y < height; y++) {
-				if (charIcon.getRGB(x, y) != Color.WHITE.getRGB()) {
-					if (image.getRGB(x + xStart, y + yStart - offset) != textColor) {
+		for (int x = 0; x < chara.imageWidth; x++) {
+			for (int y = 0; y < chara.imageHeight; y++) {
+
+				// Character pixels should have text color in image
+				if (chara.isCharacterPixel(x, y)) {
+					if (image.getRGB(xImg + x, yImg + y) != textColor) {
+						return false;
+					}
+				// And non-interfering, non-character pixels should not have text color in image
+				} else if (!isInterferencePixel(chara, x, y)) {
+					if (image.getRGB(xImg + x, yImg + y) == textColor) {
 						return false;
 					}
 				}
@@ -260,17 +308,44 @@ public class OCRReader
 	 * @param yStart
 	 * @param offset
 	 */
-	private void eraseCharAt(BufferedImage charIcon, BufferedImage image, int xStart, int yStart, int offset) {
-		int width = charIcon.getWidth();
-		int height = charIcon.getHeight();
+	private void eraseCharAt(OCRChar chara, int xStart, int yStart, int offset) {
+		int xImg = xStart - chara.xLeftTopPixel;
+		int yImg = yStart - chara.yLeftTopPixel;
 		
-		for (int x = 0; x < width; x++) {
-			for (int y = 0; y < height; y++) {
-				if (charIcon.getRGB(x, y) == Color.BLACK.getRGB()) {
-					image.setRGB(x + xStart, y + yStart - offset, new Color(0, 0, 1).getRGB());
+		for (int x = chara.nonInterferingZoneLeft; x < chara.nonInterferingZoneRight; x++) {
+			for (int y = 0; y < chara.imageHeight; y++) {
+				if (chara.isCharacterPixel(x, y) && !isInterferencePixel(chara, x, y)) {
+					image.setRGB(xImg + x, yImg + y, nonTextColor);
 				}
 			}
 		}
+		try {
+			ImageIO.write(image, "png", new File("Errors/erasred" + chara.charName + ".png"));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	private boolean isInterferencePixel(OCRChar chara, int x, int y) {
+		// In own interference zone
+		if (x < chara.nonInterferingZoneLeft || x >= chara.nonInterferingZoneRight) {
+			return true;
+		}
+		
+		// In general interference zone
+		int colsFromLeftOfInterferenceZone = x - chara.nonInterferingZoneLeft; 
+		if (colsFromLeftOfInterferenceZone < generalInterferenceZoneLeft.length
+				&& generalInterferenceZoneLeft[colsFromLeftOfInterferenceZone][y] == 1) {
+			return true;
+		}
+		int colsFromRightOfInterferenceZone = chara.nonInterferingZoneRight - x - 1;
+		if (colsFromRightOfInterferenceZone < generalInterferenceZoneRight.length
+				&& generalInterferenceZoneRight[colsFromRightOfInterferenceZone][y] == 1) {
+			return true;
+		}
+		
+		return false;
 	}
 	
 	private boolean matchesTextColors(int color) {
