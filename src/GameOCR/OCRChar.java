@@ -39,7 +39,23 @@ public class OCRChar
 	int nonInterferingZoneLeft; // Inclusive
 	int nonInterferingZoneRight; // Exclusive (aka, pixel where interfering starts [or the width])
 	int numCharacterPixels;
+	int charHeight;
+	int whiteSpaceLeft;
 
+	public OCRChar(BufferedImage image, char charName) throws Exception {
+		this.image = image;
+		this.charName = charName;
+		this.imageWidth = image.getWidth();
+		this.imageHeight = image.getHeight();
+		this.xLeftTopPixel = 0;
+		this.yLeftTopPixel = 0;
+		this.nonInterferingZoneLeft = 0;
+		this.nonInterferingZoneRight = this.imageWidth;
+		this.numCharacterPixels = 0;
+		this.charHeight = this.imageHeight;
+		this.whiteSpaceLeft = this.imageWidth;
+	}
+	
 	public OCRChar(String baseFolder, String fileName) throws Exception {
 		this.image = ImageIO.read(new File(baseFolder + "/" + fileName));
 		this.charName = fileName.charAt(0);
@@ -48,12 +64,14 @@ public class OCRChar
 		this.setNonInterferingZone();
 		this.setLeftTopPixel();
 		this.setNumCharacterPixels();
+		this.setCharHeight();
+		this.setWhiteSpaceLeft();
 	}
 	
 	public OCRChar(String baseFolder, String folder, String fileName) throws Exception {
 		this.image = ImageIO.read(new File(baseFolder + "/" + folder + "/" + fileName));
 		
-		if (folder.equals("Special")) {
+		if (folder.equals("Specials")) {
 			this.charName = translateSpecialName(fileName);
 		}
 		
@@ -62,6 +80,8 @@ public class OCRChar
 		this.setNonInterferingZone();
 		this.setLeftTopPixel();
 		this.setNumCharacterPixels();
+		this.setCharHeight();
+		this.setWhiteSpaceLeft();
 	}
 	
 	public char translateSpecialName(String fileName) throws IOException {
@@ -91,9 +111,8 @@ public class OCRChar
 		this.nonInterferingZoneRight = x;
 	}
 	
-	private void setLeftTopPixel() throws Exception {
-		
-		for (int x = 0; x < imageWidth; x++) {
+	private void setLeftTopPixel() throws Exception {		
+		for (int x = this.nonInterferingZoneLeft; x < imageWidth; x++) {
 			for (int y = 0; y < imageHeight; y++) {
 				if (isCharacterPixel(x, y)) {
 					this.xLeftTopPixel = x;
@@ -102,10 +121,9 @@ public class OCRChar
 				}
 			}
 		}
-		
-		throw new Exception("Could not find start pixel of " + this.charName);
+		throw new Exception("Could not find the left top pixel for " + this.charName);
 	}
-
+	
 	private void setNumCharacterPixels() {
 		int num = 0;
 		for (int x = 0; x < imageWidth; x++) {
@@ -116,6 +134,46 @@ public class OCRChar
 			}
 		}
 		this.numCharacterPixels = num;
+	}
+
+	private void setWhiteSpaceLeft() {
+		int whiteSpace = 0;
+		for (int x = this.nonInterferingZoneLeft; x < this.nonInterferingZoneRight; x++) {
+			for (int y = 0; y < imageHeight; y++) {
+				if (isCharacterPixel(x, y)) {
+					this.whiteSpaceLeft = whiteSpace;
+					return;
+				}
+			}
+			whiteSpace++;
+		}
+		this.whiteSpaceLeft = whiteSpace;
+	}
+	
+	private void setCharHeight() {
+		this.charHeight = this.getBottomCharacterPixel() - this.getTopCharacterPixel();
+	}
+	
+	private int getTopCharacterPixel() {
+		for (int y = 0; y < imageHeight; y++) {
+			for (int x = 0; x < imageWidth; x++) {
+				if (isCharacterPixel(x, y)) {
+					return y;
+				}
+			}
+		}
+		return 0;
+	}
+	
+	private int getBottomCharacterPixel() {
+		for (int y = this.imageHeight; y > 0; y--) {
+			for (int x = 0; x < imageWidth; x++) {
+				if (isCharacterPixel(x, y-1)) {
+					return y;
+				}
+			}
+		}
+		return 0;
 	}
 	
 	public boolean isCharacterPixel(int x, int y) {
