@@ -1,7 +1,5 @@
-# GameDailyTasks
-To automate daily tasks for a game I like. :)
-
+# JavaPractice
 
 Run in administrator mode.
 
-Run game in 1024x768 FullScreen Mode.
+Run program at 1024x768 resolution in FullScreen Mode.
